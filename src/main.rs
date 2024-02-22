@@ -38,7 +38,7 @@ fn read_dates(file_path: &str) {
         .collect();
 
     dates.iter().for_each(|item| {
-        println!("{},{}", item.0, item.1);
+        println!("{},{}", item.1, item.0);
     })
 }
 
