@@ -1,8 +1,13 @@
+use chrono::{NaiveDateTime, Utc};
 use std::env;
 use std::fs::File;
 use std::io::{self, BufRead};
 
-use chrono::NaiveDateTime;
+#[derive(Debug)]
+struct DateEntry {
+    hash: String,
+    days_ago: i64,
+}
 
 fn main() {
     // Get the file path from the command line arguments
@@ -14,31 +19,39 @@ fn main() {
     let file_path = &args[1];
 
     // Read the file and parse dates
-    read_dates(file_path);
+    if let Err(err) = read_dates(file_path) {
+        eprintln!("Error: {}", err);
+        std::process::exit(1);
+    }
 }
 
-fn read_dates(file_path: &str) {
-    let file = File::open(file_path).expect("failed to open file");
+fn read_dates(file_path: &str) -> Result<(), Box<dyn std::error::Error>> {
+    let file = File::open(file_path)?;
     let lines = io::BufReader::new(file).lines();
-    let now = chrono::offset::Utc::now().naive_utc();
+    let now = Utc::now().naive_utc();
 
-    let dates: Vec<(String, i64)> = lines
+    let dates: Vec<DateEntry> = lines
         .filter_map(|line| {
             line.ok().and_then(|s| {
                 let trimmed = s.trim();
                 let mut split = trimmed.split(",");
-                let hash = split.next().expect("could not find first element");
-                let date = split.next().expect("could not find second element");
+                let hash = split.next()?;
+                let date = split.next()?;
                 let date = NaiveDateTime::parse_from_str(date, "%a %b %e %H:%M:%S %Y %z")
-                    .expect("could not parse date");
+                    .map_err(|e| Box::new(e) as Box<dyn std::error::Error>)
+                    .ok()?;
                 let days_ago = now.signed_duration_since(date).num_days();
-                Some((hash.to_string(), days_ago))
+                Some(DateEntry {
+                    hash: hash.to_string(),
+                    days_ago,
+                })
             })
         })
         .collect();
 
     dates.iter().for_each(|item| {
-        println!("{},{}", item.1, item.0);
-    })
-}
+        println!("{},{}", item.days_ago, item.hash);
+    });
 
+    Ok(())
+}
