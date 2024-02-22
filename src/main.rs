@@ -15,36 +15,41 @@ fn main() {
     let file_path = &args[1];
 
     // Read the file and parse dates
-    let dates: Vec<NaiveDateTime> = read_dates(file_path).expect("Error reading dates from file");
+    read_dates(file_path);
 
-    // Calculate the difference in days
-    let days_ago: Vec<i64> = dates.iter().map(|date| days_difference(*date)).collect();
-
-    // Calculate and print the median
-    let median_days = calculate_median(&days_ago);
-    println!("Median days ago: {}", median_days);
 }
 
-fn read_dates(file_path: &str) -> io::Result<Vec<NaiveDateTime>> {
-    let file = File::open(file_path)?;
+fn read_dates(file_path: &str) {
+    let file = File::open(file_path).expect("failed to open file");
     let lines = io::BufReader::new(file).lines();
 
-    let dates: Vec<NaiveDateTime> = lines
+    let dates: Vec<(String, i64)> = lines
         .filter_map(|line| {
             line.ok().and_then(|s| {
                 let trimmed = s.trim();
-                NaiveDateTime::parse_from_str(trimmed, "%a %b %e %H:%M:%S %Y %z").ok()
+                let mut split = trimmed.split(",");
+                let hash = split.next().expect("could not find first element");
+                let date = split.next().expect("could not find second element");
+                let date = NaiveDateTime::parse_from_str(date, "%a %b %e %H:%M:%S %Y %z").expect("could not parse date");
+                let now = chrono::offset::Utc::now().naive_utc();
+                let days_ago = now.signed_duration_since(date).num_days();
+                Some((hash.to_string(), days_ago))
             })
         })
         .collect();
 
-    Ok(dates)
 }
 
 fn days_difference(date: NaiveDateTime) -> i64 {
     let now = chrono::offset::Utc::now().naive_utc();
     let duration = now.signed_duration_since(date);
     duration.num_days()
+}
+
+fn days_difference_with_hash(date: NaiveDateTime, hash: &str) -> (&str, i64) {
+    let now = chrono::offset::Utc::now().naive_utc();
+    let duration = now.signed_duration_since(date);
+    (hash, duration.num_days())
 }
 
 fn calculate_median(values: &Vec<i64>) -> i64 {
