@@ -20,6 +20,7 @@ fn main() {
 fn read_dates(file_path: &str) {
     let file = File::open(file_path).expect("failed to open file");
     let lines = io::BufReader::new(file).lines();
+    let now = chrono::offset::Utc::now().naive_utc();
 
     let dates: Vec<(String, i64)> = lines
         .filter_map(|line| {
@@ -30,7 +31,6 @@ fn read_dates(file_path: &str) {
                 let date = split.next().expect("could not find second element");
                 let date = NaiveDateTime::parse_from_str(date, "%a %b %e %H:%M:%S %Y %z")
                     .expect("could not parse date");
-                let now = chrono::offset::Utc::now().naive_utc();
                 let days_ago = now.signed_duration_since(date).num_days();
                 Some((hash.to_string(), days_ago))
             })
